@@ -1,0 +1,48 @@
+{
+  "name": "dynsim",
+  "version": "0.1.0",
+  "description": "Interactive dynamical systems simulator with PyScript/Python integration and Plotly visualization",
+  "type": "module",
+  "main": "dist/dynsim.umd.js",
+  "module": "dist/dynsim.esm.js",
+  "unpkg": "dist/dynsim.umd.js",
+  "jsdelivr": "dist/dynsim.umd.js",
+  "exports": {
+    ".": {
+      "import": "./dist/dynsim.esm.js",
+      "require": "./dist/dynsim.umd.js",
+      "default": "./dist/dynsim.esm.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "node build.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "dynamical-systems",
+    "simulation",
+    "plotly",
+    "pyscript",
+    "visualization",
+    "interactive"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "plotly.js-dist": ">=2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "plotly.js-dist": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "vitest": "^4.1.0"
+  }
+}
