@@ -8,6 +8,7 @@ export { SimulationView } from './view.js';
 export { SimulationController } from './controller.js';
 export { CodeEditor } from './editor.js';
 export * as registry from './registry.js';
+export { pyToJs, injectPythonBridge } from './pybridge.js';
 
 import { SimulationController } from './controller.js';
 import * as registry from './registry.js';
@@ -22,9 +23,11 @@ export async function autoInit() {
   window.pythonSystems = {};
   window.dynSimConfigs = {};
 
-  // Bridge: window.registerPythonSystem calls registry.register,
-  // then auto-initializes if DOM + Plotly are ready.
-  window.registerPythonSystem = function (containerId, stepFunction, config) {
+  // JS-side registration — called by the Python bridge wrapper.
+  // The Python bridge (injected by injectPythonBridge) redefines
+  // window.registerPythonSystem to wrap step functions with to_py()
+  // conversion, then calls this function.
+  window._dynsimJsRegister = function (containerId, stepFunction, config) {
     console.log('[DynSim] Registering Python system:', containerId);
     registry.register(containerId, stepFunction, config);
 
@@ -32,6 +35,11 @@ export async function autoInit() {
       initializeContainer(containerId);
     }
   };
+
+  // Fallback: if the Python bridge hasn't loaded, provide a direct JS registration
+  if (!window.registerPythonSystem) {
+    window.registerPythonSystem = window._dynsimJsRegister;
+  }
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', async () => {

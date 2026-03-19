@@ -6,7 +6,7 @@ await esbuild.build({
   bundle: true,
   format: 'esm',
   outfile: 'dist/dynsim.esm.js',
-  minify: true,
+  minify: !process.env.DEBUG,
   sourcemap: true,
 });
 
@@ -19,7 +19,7 @@ await esbuild.build({
   format: 'iife',
   globalName: 'DynSim',
   outfile: 'dist/dynsim.umd.js',
-  minify: true,
+  minify: !process.env.DEBUG,
   sourcemap: true,
 });
 

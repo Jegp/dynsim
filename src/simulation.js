@@ -15,6 +15,9 @@ export class Simulation {
    * @param {number} config.initialX - Initial input/output value
    * @param {number} config.dt - Time step
    * @param {number} [config.maxPoints=1000] - Max buffered points (non-timeseries)
+   * @param {number} [config.maxPoints=1000] - Max buffered points (non-timeseries)
+   * @param {number} [config.pauseTime=null] - Pause simulation at this time (null = run forever)
+   * @param {string} [config.spikes=null] - State variable name to check for spikes (e.g. 'z'). Falsy = no spikes.
    * @param {function} stepProvider - () => stepFunction. Called each tick to get the current step function.
    */
   constructor(config, stepProvider) {
@@ -25,6 +28,8 @@ export class Simulation {
     this.initialX = config.initialX ?? 0;
     this.dt = config.dt || 0.01;
     this.maxPoints = config.maxPoints || 1000;
+    this.pauseTime = config.pauseTime ?? null;
+    this.spikes = config.spikes || null;
 
     this.stepProvider = stepProvider;
 
@@ -32,6 +37,7 @@ export class Simulation {
     this.state = { ...this.initialState };
     this.time = 0;
     this.plotData = [];
+    this.spikeTimes = [];
   }
 
   /**
@@ -55,11 +61,24 @@ export class Simulation {
     this.state = result[1];
     this.time += this.dt;
 
+    // Record spike if the configured state variable is truthy
+    if (this.spikes && this.state[this.spikes]) {
+      this.spikeTimes.push(this.time);
+    }
+
     const dataPoint = this._collectDataPoint();
     this.plotData.push(dataPoint);
     this._manageBuffer();
 
     return { x: this.x, state: this.state, dataPoint };
+  }
+
+  /**
+   * Whether the simulation has reached its pause time.
+   * @returns {boolean}
+   */
+  get paused() {
+    return this.pauseTime != null && this.time >= this.pauseTime;
   }
 
   /**
@@ -70,6 +89,7 @@ export class Simulation {
     this.state = { ...this.initialState };
     this.time = 0;
     this.plotData = [];
+    this.spikeTimes = [];
   }
 
   /**
@@ -125,6 +145,12 @@ export class Simulation {
 
       if (this.plotData.length > targetPoints * 2) {
         this.plotData = this.plotData.slice(-targetPoints);
+        // Trim old spike times outside the buffer
+        if (this.spikeTimes.length > 0) {
+          const cutoff = this.plotData[0][0]; // earliest time in buffer
+          const firstKeep = this.spikeTimes.findIndex(t => t >= cutoff);
+          if (firstKeep > 0) this.spikeTimes = this.spikeTimes.slice(firstKeep);
+        }
       }
     } else {
       if (this.plotData.length > this.maxPoints) {

@@ -8,22 +8,49 @@
 const systems = {};
 
 /**
+ * Ensure a value is a plain JS object (not a PyProxy or other foreign wrapper).
+ * Uses Pyodide's toJs() if available, otherwise falls back to JSON round-trip.
+ */
+function toPlainObject(value) {
+  if (value == null) return value;
+  // Pyodide PyProxy — use toJs with dict_converter for proper dict→object conversion
+  if (typeof value.toJs === 'function') {
+    try {
+      return value.toJs({ dict_converter: Object.fromEntries });
+    } catch {
+      try { return value.toJs(); } catch {}
+    }
+  }
+  // Fallback: JSON round-trip (works for plain JS objects)
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return value;
+  }
+}
+
+/**
  * Register (or replace) a step function and config for a container.
  * @param {string} containerId
  * @param {function} stepFunction - step(x, state, params) => [x_new, state_new]
- * @param {object} rawConfig - Raw config with JSON-encoded fields
+ * @param {object} rawConfig - Config object (plain JS or Python dict proxy — converted implicitly)
  */
 export function register(containerId, stepFunction, rawConfig) {
+  // Convert potential PyProxy to plain JS object
+  const cfg = toPlainObject(rawConfig);
   systems[containerId] = {
     step: stepFunction,
     config: {
-      params: JSON.parse(rawConfig.params || '[]'),
-      plotType: rawConfig.plotType || 'timeseries',
-      plotConfig: JSON.parse(rawConfig.plotConfig || '{}'),
-      initialState: JSON.parse(rawConfig.initialState || '{"t": 0}'),
-      initialX: rawConfig.initialX ?? 0,
-      height: rawConfig.height || 400,
-      dt: rawConfig.dt || 0.01
+      params: typeof cfg.params === 'string' ? JSON.parse(cfg.params) : (cfg.params || []),
+      plotType: cfg.plotType || 'timeseries',
+      plotConfig: typeof cfg.plotConfig === 'string' ? JSON.parse(cfg.plotConfig) : (cfg.plotConfig || {}),
+      initialState: typeof cfg.initialState === 'string' ? JSON.parse(cfg.initialState) : (cfg.initialState || { t: 0 }),
+      initialX: cfg.initialX ?? 0,
+      height: cfg.height || 400,
+      dt: cfg.dt || 0.01,
+      pauseTime: cfg.pauseTime ?? null,
+      spikes: cfg.spikes || null,
+      spikeThreshold: cfg.spikeThreshold ?? null
     }
   };
 }

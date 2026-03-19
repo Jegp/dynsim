@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DynSim — Damped Oscillator</title>
+
+  <!-- Plotly -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <!-- PyScript -->
+  <script src="https://pyscript.net/releases/2024.11.1/core.js" type="module"></script>
+
+  <!-- DynSim (local build — replace with CDN after npm publish) -->
+  <script src="../dist/dynsim.umd.js"></script>
+</head>
+<body style="max-width: 800px; margin: 40px auto; font-family: sans-serif;">
+
+  <!-- MathJax for equation rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+
+  <h1>Damped Oscillator</h1>
+  <p>
+    A second-order damped oscillator driven by an external input \(u(t)\):
+  </p>
+  <p style="text-align: center; font-size: 1.2em;">
+    \[\ddot{x} + 2\zeta\omega_0\,\dot{x} + \omega_0^2\,x = u(t)\]
+  </p>
+  <p>
+    Drag the <strong>Input (x)</strong> slider to apply a force \(u(t)\);
+    adjust <strong>\(\zeta\)</strong> (damping ratio) and <strong>\(\omega_0\)</strong>
+    (natural frequency) to change the dynamics.
+    At \(\zeta = 0\) the system oscillates forever; at \(\zeta = 1\) it is
+    critically damped; above that it is overdamped.
+  </p>
+
+  <!-- Simulation renders here -->
+  <div id="oscillator" class="dynsim-python-container"
+       style="min-height: 200px; display: flex; align-items: center; justify-content: center; color: #888;">
+    Loading…
+  </div>
+
+  <!-- Python system definition — executed by PyScript -->
+  <script type="py">
+from pyscript import window
+import json, math
+
+def step(x, state, params):
+    """Damped harmonic oscillator: x'' + 2ζω₀x' + ω₀²x = u(t)"""
+    pos = state["pos"]
+    vel = state["vel"]
+    t   = state["t"]
+
+    zeta = params["zeta"]   # damping ratio
+    w0   = params["w0"]     # natural frequency
+    dt   = params["dt"]
+
+    # External force = input slider value
+    force = float(x)
+
+    # Euler integration
+    acc = force - 2 * zeta * w0 * vel - w0 * w0 * pos
+    vel_new = vel + acc * dt
+    pos_new = pos + vel_new * dt
+
+    new_state = {"pos": pos_new, "vel": vel_new, "t": t + dt}
+    return [pos_new, new_state]
+
+# Register with DynSim
+config = {
+    "params": json.dumps([
+        {"id": "zeta", "label": "\\(\\zeta\\)",    "min": 0.0, "max": 2.0, "step": 0.05, "value": 0.1},
+        {"id": "w0",   "label": "\\(\\omega_0\\)", "min": 0.1, "max": 2.0, "step": 0.1, "value": 1.0},
+    ]),
+    "plotType": "timeseries",
+    "plotConfig": json.dumps({
+        "title": "Position",
+        "xaxis": {"title": "Time (s)", "range": [0, 20]},
+        "yaxis": {"title": "x", "range": [-3, 3]},
+    }),
+    "initialState": json.dumps({"pos": 0.0, "vel": 0.0, "t": 0.0}),
+    "initialX": 1,
+    "height": 450,
+    "dt": 0.02,
+    "pauseTime": 20,
+}
+window.registerPythonSystem("oscillator", step, config)
+  </script>
+
+</body>
+</html>

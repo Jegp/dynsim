@@ -16,13 +16,14 @@ export class SimulationView {
    * @param {object} options.plotConfig - Plotly layout config
    * @param {object} [options.callbacks] - { onReset, onPauseToggle }
    */
-  constructor({ container, params, initialX, height, plotType, plotConfig, callbacks }) {
+  constructor({ container, params, initialX, height, plotType, plotConfig, spikeThreshold, callbacks }) {
     this.container = container;
     this.params = params;
     this.initialX = initialX;
     this.height = height || 400;
     this.plotType = plotType || 'timeseries';
     this.plotConfig = plotConfig || {};
+    this.spikeThreshold = spikeThreshold;
     this.callbacks = callbacks || {};
 
     this.plotDiv = null;
@@ -45,6 +46,11 @@ export class SimulationView {
 
     this._buildControls();
     this.plotDiv = this.container.querySelector('.dynsim-plot');
+
+    // Typeset LaTeX in labels if MathJax is available
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+      MathJax.typesetPromise([this.container.querySelector('.dynsim-controls')]);
+    }
   }
 
   _buildControls() {
@@ -91,8 +97,7 @@ export class SimulationView {
     });
     paramsDiv.querySelectorAll('.dynsim-param').forEach(slider => {
       slider.addEventListener('input', (e) => {
-        e.target.closest('div').querySelector('.dynsim-param-value')
-          .textContent = parseFloat(e.target.value).toFixed(2);
+        e.target.nextElementSibling.textContent = parseFloat(e.target.value).toFixed(2);
       });
     });
 
@@ -120,16 +125,16 @@ export class SimulationView {
         margin: { l: 0, r: 0, t: 30, b: 0 }
       });
     } else {
+      const layout = { margin: { l: 50, r: 20, t: 40, b: 50 } };
+      if (this.plotConfig.title) layout.title = this.plotConfig.title;
+      if (this.plotConfig.xaxis) layout.xaxis = this.plotConfig.xaxis;
+      if (this.plotConfig.yaxis) layout.yaxis = this.plotConfig.yaxis;
+
       Plotly.newPlot(this.plotDiv, [{
         x: [], y: [],
         mode: 'lines',
         line: { color: '#2196f3', width: 2 }
-      }], {
-        title: this.plotConfig.title,
-        xaxis: this.plotConfig.xaxis,
-        yaxis: this.plotConfig.yaxis,
-        margin: { l: 50, r: 20, t: 40, b: 50 }
-      });
+      }], layout);
     }
   }
 
@@ -157,21 +162,51 @@ export class SimulationView {
    * Update the Plotly chart with new data.
    * @param {object} plotArrays - { x, y, z? } from Simulation.getPlotArrays()
    * @param {[number, number]} [xRange] - x-axis range for timeseries
+   * @param {number[]} [spikeTimes] - spike times to render as vertical lines
    */
-  updatePlot(plotArrays, xRange) {
+  updatePlot(plotArrays, xRange, spikeTimes) {
     if (this.plotType === '3d') {
       Plotly.animate(this.plotDiv, {
         data: [{ x: plotArrays.x, y: plotArrays.y, z: plotArrays.z }]
       }, { transition: { duration: 0 }, frame: { duration: 0 } });
     } else if (this.plotType === 'timeseries') {
+      const layout = {
+        title: this.plotConfig.title,
+        xaxis: { title: this.plotConfig.xaxis?.title || 'Time', range: xRange },
+        yaxis: this.plotConfig.yaxis,
+        margin: { l: 50, r: 20, t: 40, b: 50 }
+      };
+
+      // Render spike markers and threshold line
+      const shapes = [];
+
+      // Spike threshold: horizontal dashed line
+      if (this.spikeThreshold != null) {
+        shapes.push({
+          type: 'line',
+          x0: 0, x1: 1, xref: 'paper',
+          y0: this.spikeThreshold, y1: this.spikeThreshold,
+          line: { color: 'grey', width: 1, dash: 'dash' }
+        });
+      }
+
+      // Spike times: vertical lines
+      if (spikeTimes && spikeTimes.length > 0) {
+        for (const t of spikeTimes) {
+          shapes.push({
+            type: 'line',
+            x0: t, x1: t,
+            y0: 0, y1: 1, yref: 'paper',
+            line: { color: 'rgba(255, 0, 0, 0.4)', width: 1 }
+          });
+        }
+      }
+
+      if (shapes.length > 0) layout.shapes = shapes;
+
       Plotly.react(this.plotDiv,
         [{ x: plotArrays.x, y: plotArrays.y, mode: 'lines', line: { color: '#2196f3', width: 2 } }],
-        {
-          title: this.plotConfig.title,
-          xaxis: { title: this.plotConfig.xaxis?.title || 'Time', range: xRange },
-          yaxis: this.plotConfig.yaxis,
-          margin: { l: 50, r: 20, t: 40, b: 50 }
-        }
+        layout
       );
     } else {
       Plotly.animate(this.plotDiv, {
