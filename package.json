@@ -1,6 +1,6 @@
 {
   "name": "dynsim",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Interactive dynamical systems simulator with PyScript/Python integration and Plotly visualization",
   "type": "module",
   "main": "dist/dynsim.umd.js",
