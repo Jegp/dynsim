@@ -38,6 +38,7 @@ def step(x, state, params):
     return [pos_new, {"pos": pos_new, "vel": vel_new, "t": t + dt}]
 
 window.registerPythonSystem("my-system", step, {
+    "input": json.dumps({"label": "Force u(t)", "min": -5, "max": 5, "step": 0.1, "value": 1}),
     "params": json.dumps([
         {"id": "zeta", "label": "ζ",  "min": 0, "max": 2, "step": 0.05, "value": 0.3},
         {"id": "w0",   "label": "ω₀", "min": 0.1, "max": 10, "step": 0.1, "value": 3.0},
@@ -49,7 +50,6 @@ window.registerPythonSystem("my-system", step, {
         "yaxis": {"title": "x", "range": [-3, 3]},
     }),
     "initialState": json.dumps({"pos": 0, "vel": 0, "t": 0}),
-    "initialX": 1,
     "height": 450,
     "dt": 0.02,
     "pauseTime": 20,   # pause at t=20 (omit for continuous)
@@ -68,12 +68,31 @@ You write a Python `step(x, state, params)` function that takes:
 
 It returns `[x_new, state_new]`. DynSim calls this every animation frame, feeds the result to Plotly, and gives the user sliders to control input and parameters in real time.
 
+## Config reference
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `input` | object/JSON | `{label: "Input (x)", min: -2, max: 2, step: 0.1, value: 0}` | Input slider config |
+| `params` | array/JSON | `[]` | Parameter sliders `[{id, label, min, max, step, value}]` |
+| `plotType` | string | `"timeseries"` | `"timeseries"`, `"3d"`, or `"2d"` |
+| `plotConfig` | object/JSON | `{}` | Plotly layout (title, xaxis, yaxis) |
+| `initialState` | object/JSON | `{t: 0}` | Initial state dictionary |
+| `height` | number | `400` | Plot height in pixels |
+| `dt` | number | `0.01` | Time step |
+| `pauseTime` | number | `null` | Auto-pause at this time (`null` = run forever) |
+| `spikes` | string | `null` | State variable name for spike detection (e.g. `"z"`) |
+| `spikeThreshold` | number | `null` | Draw a horizontal threshold line at this value |
+
+Labels support LaTeX via MathJax (e.g. `"\\(\\zeta\\)"`). Include MathJax on the page for rendering.
+
 ## Features
 
 - **Live code editing** — the `CodeEditor` component lets users modify the Python system definition on the page and apply changes without resetting the simulation.
 - **Plot types** — `timeseries` (default), `3d` scatter, or `2d` phase plots.
 - **Pause / reset** — built-in controls. Optional `pauseTime` to auto-pause at a given time.
 - **Sliding time window** — for timeseries, the plot auto-scrolls as time advances.
+- **Spike visualization** — mark spikes as vertical lines and show a threshold with `spikes` and `spikeThreshold`.
+- **LaTeX labels** — parameter and input labels render LaTeX when MathJax is loaded.
 
 ## Installation
 
