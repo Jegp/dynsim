@@ -15,7 +15,7 @@ const rawConfig = {
   plotType: 'timeseries',
   plotConfig: '{"title":"Test"}',
   initialState: '{"t":0}',
-  initialX: 1,
+  input: '{"label":"Input","min":0,"max":5,"step":0.1,"value":1}',
   height: 400,
   dt: 0.05,
 };
@@ -34,7 +34,9 @@ describe('registry', () => {
       expect(config.plotType).toBe('timeseries');
       expect(config.plotConfig.title).toBe('Test');
       expect(config.initialState).toEqual({ t: 0 });
-      expect(config.initialX).toBe(1);
+      expect(config.input.value).toBe(1);
+      expect(config.input.min).toBe(0);
+      expect(config.input.max).toBe(5);
       expect(config.dt).toBe(0.05);
     });
 

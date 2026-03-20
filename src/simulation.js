@@ -12,7 +12,7 @@ export class Simulation {
    * @param {string} config.plotType - 'timeseries' | '3d' | '2d'
    * @param {object} config.plotConfig - Plotly layout config (title, axes, etc.)
    * @param {object} config.initialState - Initial state object
-   * @param {number} config.initialX - Initial input/output value
+   * @param {object} config.input - Input config {label, min, max, step, value}
    * @param {number} config.dt - Time step
    * @param {number} [config.maxPoints=1000] - Max buffered points (non-timeseries)
    * @param {number} [config.maxPoints=1000] - Max buffered points (non-timeseries)
@@ -25,7 +25,7 @@ export class Simulation {
     this.plotType = config.plotType || 'timeseries';
     this.plotConfig = config.plotConfig || {};
     this.initialState = config.initialState || { t: 0 };
-    this.initialX = config.initialX ?? 0;
+    this.initialX = config.input?.value ?? 0;
     this.dt = config.dt || 0.01;
     this.maxPoints = config.maxPoints || 1000;
     this.pauseTime = config.pauseTime ?? null;

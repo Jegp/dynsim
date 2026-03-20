@@ -16,10 +16,10 @@ export class SimulationView {
    * @param {object} options.plotConfig - Plotly layout config
    * @param {object} [options.callbacks] - { onReset, onPauseToggle }
    */
-  constructor({ container, params, initialX, height, plotType, plotConfig, spikeThreshold, callbacks }) {
+  constructor({ container, params, input, height, plotType, plotConfig, spikeThreshold, callbacks }) {
     this.container = container;
     this.params = params;
-    this.initialX = initialX;
+    this.input = input || { label: 'Input (x)', min: -2, max: 2, step: 0.1, value: 0 };
     this.height = height || 400;
     this.plotType = plotType || 'timeseries';
     this.plotConfig = plotConfig || {};
@@ -59,11 +59,11 @@ export class SimulationView {
     // Input slider row
     let html = `
       <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 8px;">
-        <label style="font-weight: 600; font-size: 0.85em; color: #0056b3; white-space: nowrap;">Input (x):</label>
+        <label style="font-weight: 600; font-size: 0.85em; color: #0056b3; white-space: nowrap;">${this.input.label}:</label>
         <input type="range" class="dynsim-input"
-          min="-2" max="2" step="0.1" value="${this.initialX}"
+          min="${this.input.min}" max="${this.input.max}" step="${this.input.step}" value="${this.input.value}"
           style="flex: 1; height: 6px; min-width: 100px;">
-        <span class="dynsim-input-value" style="background: #cfe2ff; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; min-width: 40px; text-align: center; font-family: monospace;">${this.initialX.toFixed(2)}</span>
+        <span class="dynsim-input-value" style="background: #cfe2ff; padding: 2px 8px; border-radius: 3px; font-size: 0.85em; min-width: 40px; text-align: center; font-family: monospace;">${this.input.value.toFixed(2)}</span>
         <button class="dynsim-reset" style="background: transparent; border: none; cursor: pointer; padding: 4px; display: flex; align-items: center;" title="Reset">
           <svg width="20" height="20" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 12a9 9 0 1 1-9 -9c2.5 0 4.8 1 6.5 2.5l.5 .5"/>

@@ -29,6 +29,13 @@ function toPlainObject(value) {
   }
 }
 
+const INPUT_DEFAULTS = { label: 'Input (x)', min: -2, max: 2, step: 0.1, value: 0 };
+
+function parseInput(cfg) {
+  const raw = typeof cfg.input === 'string' ? JSON.parse(cfg.input) : (cfg.input || {});
+  return { ...INPUT_DEFAULTS, ...raw };
+}
+
 /**
  * Register (or replace) a step function and config for a container.
  * @param {string} containerId
@@ -45,7 +52,7 @@ export function register(containerId, stepFunction, rawConfig) {
       plotType: cfg.plotType || 'timeseries',
       plotConfig: typeof cfg.plotConfig === 'string' ? JSON.parse(cfg.plotConfig) : (cfg.plotConfig || {}),
       initialState: typeof cfg.initialState === 'string' ? JSON.parse(cfg.initialState) : (cfg.initialState || { t: 0 }),
-      initialX: cfg.initialX ?? 0,
+      input: parseInput(cfg),
       height: cfg.height || 400,
       dt: cfg.dt || 0.01,
       pauseTime: cfg.pauseTime ?? null,

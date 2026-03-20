@@ -17,7 +17,7 @@ function makeConfig(overrides = {}) {
     plotType: 'timeseries',
     plotConfig: { xaxis: { range: [0, 10] } },
     initialState: { t: 0 },
-    initialX: 1,
+    input: { label: 'Input', min: -2, max: 2, step: 0.1, value: 1 },
     dt: 0.1,
     maxPoints: 100,
     ...overrides,
@@ -42,7 +42,7 @@ describe('Simulation', () => {
 
     it('uses defaults for missing config', () => {
       const sim2 = new Simulation({}, () => linearStep);
-      expect(sim2.initialX).toBe(0);
+      expect(sim2.initialX).toBe(0); // defaults when no input provided
       expect(sim2.dt).toBe(0.01);
       expect(sim2.plotType).toBe('timeseries');
       expect(sim2.maxPoints).toBe(1000);

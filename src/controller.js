@@ -23,7 +23,7 @@ export class SimulationController {
     this.view = new SimulationView({
       container,
       params: config.params,
-      initialX: config.initialX ?? 0,
+      input: config.input || { label: 'Input (x)', min: -2, max: 2, step: 0.1, value: 0 },
       height: config.height || 400,
       plotType: config.plotType || 'timeseries',
       plotConfig: config.plotConfig || {},
