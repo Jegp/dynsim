@@ -29,7 +29,10 @@ export class SimulationView {
     this.plotDiv = null;
 
     this.createHTML();
-    this.initPlot();
+    // initPlot() is called by the controller's start() — not here,
+    // because Plotly.newPlot is async and must finish before Plotly.react
+    // runs in updatePlot(). Calling it un-awaited here races with the
+    // first animate() frame, producing a malformed SVG.
   }
 
   createHTML() {
@@ -130,11 +133,16 @@ export class SimulationView {
       if (this.plotConfig.xaxis) layout.xaxis = this.plotConfig.xaxis;
       if (this.plotConfig.yaxis) layout.yaxis = this.plotConfig.yaxis;
 
-      Plotly.newPlot(this.plotDiv, [{
-        x: [], y: [],
-        mode: 'lines',
-        line: { color: '#2196f3', width: 2 }
-      }], layout);
+      const traces = [
+        // Trace 0: main data line
+        { x: [], y: [], mode: 'lines', line: { color: '#2196f3', width: 2 }, showlegend: false },
+        // Trace 1: spike vertical lines (rendered as trace, not shapes)
+        { x: [], y: [], mode: 'lines', line: { color: 'rgba(255, 0, 0, 0.4)', width: 1 }, showlegend: false, hoverinfo: 'skip' },
+        // Trace 2: threshold horizontal line
+        { x: [], y: [], mode: 'lines', line: { color: 'grey', width: 1, dash: 'dash' }, showlegend: false, hoverinfo: 'skip' },
+      ];
+
+      return Plotly.newPlot(this.plotDiv, traces, layout);
     }
   }
 
@@ -177,37 +185,33 @@ export class SimulationView {
         margin: { l: 50, r: 20, t: 40, b: 50 }
       };
 
-      // Render spike markers and threshold line
-      const shapes = [];
-
-      // Spike threshold: horizontal dashed line
-      if (this.spikeThreshold != null) {
-        shapes.push({
-          type: 'line',
-          x0: 0, x1: 1, xref: 'paper',
-          y0: this.spikeThreshold, y1: this.spikeThreshold,
-          line: { color: 'grey', width: 1, dash: 'dash' }
-        });
-      }
-
-      // Spike times: vertical lines
+      // Build spike vertical lines as a single trace with null gaps
+      const spikeX = [];
+      const spikeY = [];
       if (spikeTimes && spikeTimes.length > 0) {
+        const yRange = this.plotConfig.yaxis?.range || [-0.5, 1.5];
         for (const t of spikeTimes) {
-          shapes.push({
-            type: 'line',
-            x0: t, x1: t,
-            y0: 0, y1: 1, yref: 'paper',
-            line: { color: 'rgba(255, 0, 0, 0.4)', width: 1 }
-          });
+          spikeX.push(t, t, null);
+          spikeY.push(yRange[0], yRange[1], null);
         }
       }
 
-      if (shapes.length > 0) layout.shapes = shapes;
+      // Build threshold horizontal line as a trace
+      const threshX = [];
+      const threshY = [];
+      if (this.spikeThreshold != null && xRange) {
+        threshX.push(xRange[0], xRange[1]);
+        threshY.push(this.spikeThreshold, this.spikeThreshold);
+      }
 
-      Plotly.react(this.plotDiv,
-        [{ x: plotArrays.x, y: plotArrays.y, mode: 'lines', line: { color: '#2196f3', width: 2 } }],
-        layout
-      );
+      Plotly.react(this.plotDiv, [
+        // Trace 0: main data
+        { x: plotArrays.x, y: plotArrays.y, mode: 'lines', line: { color: '#2196f3', width: 2 }, showlegend: false },
+        // Trace 1: spike lines
+        { x: spikeX, y: spikeY, mode: 'lines', line: { color: 'rgba(255, 0, 0, 0.4)', width: 1 }, showlegend: false, hoverinfo: 'skip' },
+        // Trace 2: threshold line
+        { x: threshX, y: threshY, mode: 'lines', line: { color: 'grey', width: 1, dash: 'dash' }, showlegend: false, hoverinfo: 'skip' },
+      ], layout);
     } else {
       Plotly.animate(this.plotDiv, {
         data: [{ x: plotArrays.x, y: plotArrays.y }]

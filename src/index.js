@@ -13,6 +13,50 @@ export { pyToJs, injectPythonBridge } from './pybridge.js';
 import { SimulationController } from './controller.js';
 import * as registry from './registry.js';
 
+// --- Singleton controller management ---
+// One controller per container ID. Creating a new one destroys the old.
+const controllers = {};
+
+/**
+ * Create (or replace) the controller for a container.
+ * Destroys any existing controller first to prevent races.
+ * @param {string} containerId
+ * @returns {SimulationController|null}
+ */
+export function initializeContainer(containerId) {
+  // Destroy existing controller to prevent overlapping Plotly calls
+  if (controllers[containerId]) {
+    console.log('[DynSim] Destroying old controller for:', containerId);
+    controllers[containerId].destroy();
+    delete controllers[containerId];
+  }
+
+  const container = document.getElementById(containerId);
+  if (!container) return null;
+
+  const config = registry.getConfig(containerId);
+  if (!config) return null;
+
+  console.log('[DynSim] Creating controller for:', containerId);
+  const ctrl = new SimulationController({
+    container,
+    config,
+    stepProvider: () => registry.getStep(containerId)
+  });
+  controllers[containerId] = ctrl;
+  ctrl.start();
+  return ctrl;
+}
+
+/**
+ * Get the active controller for a container (if any).
+ * @param {string} containerId
+ * @returns {SimulationController|null}
+ */
+export function getController(containerId) {
+  return controllers[containerId] || null;
+}
+
 /**
  * Auto-initialize: expose globals for PyScript interop and
  * bootstrap PyScript containers. Called automatically by the UMD build.
@@ -24,9 +68,6 @@ export async function autoInit() {
   window.dynSimConfigs = {};
 
   // JS-side registration — called by the Python bridge wrapper.
-  // The Python bridge (injected by injectPythonBridge) redefines
-  // window.registerPythonSystem to wrap step functions with to_py()
-  // conversion, then calls this function.
   window._dynsimJsRegister = function (containerId, stepFunction, config) {
     console.log('[DynSim] Registering Python system:', containerId);
     registry.register(containerId, stepFunction, config);
@@ -54,23 +95,6 @@ export async function autoInit() {
 
 // --- Internal helpers for autoInit ---
 
-const controllers = {};
-
-function initializeContainer(containerId) {
-  const container = document.getElementById(containerId);
-  if (!container || container.querySelector('.dynsim-container')) return;
-
-  const config = registry.getConfig(containerId);
-  if (!config) return;
-
-  controllers[containerId] = new SimulationController({
-    container,
-    config,
-    stepProvider: () => registry.getStep(containerId)
-  });
-  controllers[containerId].start();
-}
-
 function initializeAllContainers() {
   let attempts = 0;
   const MAX_ATTEMPTS = 20;
@@ -88,7 +112,12 @@ function initializeAllContainers() {
       return;
     }
 
-    ids.forEach(initializeContainer);
+    ids.forEach(id => {
+      // Only init if no active controller exists
+      if (!controllers[id]) {
+        initializeContainer(id);
+      }
+    });
   }
 
   tryInit();

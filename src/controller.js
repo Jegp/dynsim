@@ -35,10 +35,11 @@ export class SimulationController {
     });
   }
 
-  start() {
+  async start() {
     if (this.animationId) {
       cancelAnimationFrame(this.animationId);
     }
+    await this.view.initPlot();
     this.animate();
   }
 
@@ -49,9 +50,9 @@ export class SimulationController {
     }
   }
 
-  reset() {
+  async reset() {
     this.simulation.reset();
-    this.view.initPlot();
+    await this.view.initPlot();
   }
 
   togglePause() {
@@ -64,6 +65,14 @@ export class SimulationController {
   }
 
   animate() {
+    // Stop if the DOM element was detached (e.g. by React hydration).
+    // The SPA polling will create a new controller on the replacement element.
+    if (!document.contains(this.view.plotDiv)) {
+      console.log('[DynSim] Plot element detached from DOM, stopping controller');
+      this.stop();
+      return;
+    }
+
     if (this.isRunning && !this.simulation.paused) {
       const inputValue = this.view.getInput();
       const paramValues = this.view.getParameters();
