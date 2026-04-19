@@ -2,9 +2,10 @@
  * CodeEditor — in-page Python code editor with live replacement.
  *
  * Provides a textarea for editing the Python step function definition.
- * On "Apply", re-executes the code via PyScript/Pyodide and updates
- * the step function in the registry. The simulation continues
- * seamlessly with the new dynamics on the next tick.
+ * Supports both manual "Apply" and automatic live mode with debounce.
+ * Re-executes the code via PyScript/Pyodide and updates the step
+ * function in the registry. The simulation continues seamlessly
+ * with the new dynamics on the next tick.
  */
 import * as registry from './registry.js';
 
@@ -17,14 +18,19 @@ export class CodeEditor {
    * @param {function} options.executePython - (code, containerId, config) => void
    *   Function that executes Python code in the PyScript/Pyodide runtime.
    *   The code should call registerPythonSystem which updates the registry.
+   * @param {boolean} [options.live=true] - Enable auto-apply on edit with debounce
+   * @param {number} [options.debounceMs=500] - Debounce delay in ms for live mode
    */
-  constructor({ container, containerId, initialCode, executePython }) {
+  constructor({ container, containerId, initialCode, executePython, live, debounceMs }) {
     this.container = container;
     this.containerId = containerId;
     this.initialCode = initialCode || '';
     this.executePython = executePython;
+    this.live = live !== false;
+    this.debounceMs = debounceMs || 500;
     this.textarea = null;
     this.statusEl = null;
+    this._debounceTimer = null;
 
     this.render();
   }
@@ -36,6 +42,11 @@ export class CodeEditor {
           <label style="font-weight: 600; font-size: 0.85em;">Python System Definition</label>
           <div style="display: flex; gap: 8px; align-items: center;">
             <span class="dynsim-editor-status" style="font-size: 0.8em; color: #666;"></span>
+            <label style="font-size: 0.8em; cursor: pointer; user-select: none;">
+              <input type="checkbox" class="dynsim-editor-live" ${this.live ? 'checked' : ''}
+                style="vertical-align: middle; margin-right: 2px;">
+              Live
+            </label>
             <button class="dynsim-editor-apply" style="
               background: #0056b3; color: white; border: none; border-radius: 4px;
               padding: 4px 12px; cursor: pointer; font-size: 0.85em;
@@ -43,7 +54,7 @@ export class CodeEditor {
             <button class="dynsim-editor-reset" style="
               background: #6c757d; color: white; border: none; border-radius: 4px;
               padding: 4px 12px; cursor: pointer; font-size: 0.85em;
-            ">Reset Code</button>
+            ">Reset</button>
           </div>
         </div>
         <textarea class="dynsim-editor-textarea" style="
@@ -63,8 +74,24 @@ export class CodeEditor {
     this.container.querySelector('.dynsim-editor-reset')
       .addEventListener('click', () => this.resetCode());
 
-    // Tab key inserts spaces instead of changing focus
+    this.container.querySelector('.dynsim-editor-live')
+      .addEventListener('change', (e) => { this.live = e.target.checked; });
+
+    // Live auto-apply on input
+    this.textarea.addEventListener('input', () => {
+      if (!this.live) return;
+      clearTimeout(this._debounceTimer);
+      this._debounceTimer = setTimeout(() => this.apply(), this.debounceMs);
+    });
+
+    // Ctrl/Cmd+Enter to apply manually
     this.textarea.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        this.apply();
+        return;
+      }
+      // Tab key inserts spaces instead of changing focus
       if (e.key === 'Tab') {
         e.preventDefault();
         const start = this.textarea.selectionStart;
@@ -100,6 +127,9 @@ export class CodeEditor {
   resetCode() {
     this.textarea.value = this.initialCode;
     this._setStatus('Reset to original', '#666');
+    if (this.live) {
+      this.apply();
+    }
   }
 
   /**
@@ -113,7 +143,6 @@ export class CodeEditor {
   _setStatus(text, color) {
     this.statusEl.textContent = text;
     this.statusEl.style.color = color;
-    // Clear status after 3 seconds
     setTimeout(() => {
       if (this.statusEl.textContent === text) {
         this.statusEl.textContent = '';

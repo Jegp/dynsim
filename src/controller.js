@@ -1,11 +1,15 @@
 /**
- * SimulationController — wires Simulation + SimulationView.
+ * SimulationController — wires Simulation + SimulationView + CodeEditor.
  *
  * Owns the requestAnimationFrame loop. Each tick:
  * reads input from view → calls simulation.step() → updates view.
+ *
+ * When config.editor is set, creates a CodeEditor above the simulation
+ * that allows live editing and hot-swapping of the step function.
  */
 import { Simulation } from './simulation.js';
 import { SimulationView } from './view.js';
+import { CodeEditor } from './editor.js';
 
 export class SimulationController {
   /**
@@ -17,6 +21,30 @@ export class SimulationController {
   constructor({ container, config, stepProvider }) {
     this.isRunning = true;
     this.animationId = null;
+    this.editor = null;
+
+    // If editor config is present, create the editor above the sim
+    if (config.editor) {
+      const editorDiv = document.createElement('div');
+      container.parentNode.insertBefore(editorDiv, container);
+      this._editorDiv = editorDiv;
+
+      const editorConfig = typeof config.editor === 'object' ? config.editor : {};
+      this.editor = new CodeEditor({
+        container: editorDiv,
+        containerId: container.id,
+        initialCode: editorConfig.code || '',
+        live: editorConfig.live !== false,
+        debounceMs: editorConfig.debounceMs || 500,
+        executePython: (code, containerId) => {
+          if (window._dynsimExecPython) {
+            window._dynsimExecPython(code, containerId);
+          } else {
+            throw new Error('PyScript runtime not ready');
+          }
+        }
+      });
+    }
 
     this.simulation = new Simulation(config, stepProvider);
 
@@ -105,5 +133,10 @@ export class SimulationController {
   destroy() {
     this.stop();
     this.view.destroy();
+    if (this._editorDiv) {
+      this._editorDiv.remove();
+      this._editorDiv = null;
+      this.editor = null;
+    }
   }
 }

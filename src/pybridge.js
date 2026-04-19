@@ -36,6 +36,25 @@ def _dynsim_init_bridge():
 
     _w.registerPythonSystem = _register
 
+    def _exec_python(code, container_id):
+        """Execute Python code and auto-register the step function it defines.
+        The code should define a function named 'step'. The bridge wraps it
+        with type conversion and replaces the step function in the registry."""
+        ns = {"__builtins__": __builtins__}
+        exec(code, ns)
+        step_fn = ns.get("step")
+        if step_fn is None:
+            raise ValueError("Code must define a function named 'step'")
+        # Wrap and register — reuses the same bridge wrapping as initial registration
+        def wrapped_step(x, state, params):
+            s = state.to_py() if hasattr(state, 'to_py') else state
+            p = params.to_py() if hasattr(params, 'to_py') else params
+            result = step_fn(float(x), s, p)
+            return to_js(result, dict_converter=Object.fromEntries)
+        _w._dynsimJsReplaceStep(container_id, create_proxy(wrapped_step))
+
+    _w._dynsimExecPython = _exec_python
+
 _dynsim_init_bridge()
 del _dynsim_init_bridge
 `;

@@ -57,7 +57,8 @@ export function register(containerId, stepFunction, rawConfig) {
       dt: cfg.dt || 0.01,
       pauseTime: cfg.pauseTime ?? null,
       spikes: cfg.spikes || null,
-      spikeThreshold: cfg.spikeThreshold ?? null
+      spikeThreshold: cfg.spikeThreshold ?? null,
+      editor: typeof cfg.editor === 'string' ? JSON.parse(cfg.editor) : (cfg.editor || null),
     }
   };
 }

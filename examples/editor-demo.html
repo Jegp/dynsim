@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DynSim — Live Editor Demo</title>
+
+  <!-- Plotly -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <!-- PyScript -->
+  <script src="https://pyscript.net/releases/2024.11.1/core.js" type="module"></script>
+
+  <!-- DynSim (local build) -->
+  <script src="../dist/dynsim.umd.js"></script>
+</head>
+<body style="max-width: 900px; margin: 40px auto; font-family: sans-serif;">
+
+  <h1>Live Editor Demo</h1>
+  <p>
+    Edit the step function below and watch the simulation update in real time.
+    With <strong>Live</strong> checked, changes apply automatically after you
+    stop typing. You can also press <kbd>Ctrl</kbd>+<kbd>Enter</kbd>.
+  </p>
+
+  <!-- Simulation renders here -->
+  <div id="lif" class="dynsim-python-container"
+       style="min-height: 200px; display: flex; align-items: center; justify-content: center; color: #888;">
+    Loading&hellip;
+  </div>
+
+  <!-- Python system definition -->
+  <script type="py">
+from pyscript import window
+import json
+
+STEP_CODE = '''
+def step(x, state, params):
+    v   = state["v"]
+    dt  = params["dt"]
+    tau = params["tau"]
+    R   = params["R"]
+
+    dv = (-v + R * x) / tau
+    v_new = v + dv * dt
+
+    spiked = v_new >= 1.0
+    if spiked:
+        v_new = 0.0
+
+    return [v_new, {"v": v_new, "z": bool(spiked)}]
+'''
+
+exec(STEP_CODE)
+
+config = {
+    "params": json.dumps([
+        {"id": "tau", "label": "tau", "min": 1.0, "max": 50.0, "step": 1.0, "value": 10.0},
+        {"id": "R",   "label": "R",   "min": 0.1, "max": 5.0,  "step": 0.1, "value": 1.5},
+    ]),
+    "plotType": "timeseries",
+    "plotConfig": json.dumps({
+        "title": "Membrane Potential",
+        "xaxis": {"title": "Time", "range": [0, 200]},
+        "yaxis": {"title": "v", "range": [-0.2, 1.3]},
+    }),
+    "initialState": json.dumps({"v": 0.0, "z": False}),
+    "input": json.dumps({"label": "Current I", "min": 0, "max": 5, "step": 0.1, "value": 1}),
+    "height": 450,
+    "dt": 0.1,
+    "spikes": "z",
+    "spikeThreshold": 1.0,
+    "pauseTime": 200,
+    "editor": json.dumps({"code": STEP_CODE.strip(), "live": True}),
+}
+window.registerPythonSystem("lif", step, config)
+  </script>
+
+</body>
+</html>

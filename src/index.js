@@ -67,6 +67,12 @@ export async function autoInit() {
   window.pythonSystems = {};
   window.dynSimConfigs = {};
 
+  // JS-side step replacement — called by the editor's Python exec bridge.
+  window._dynsimJsReplaceStep = function (containerId, stepFunction) {
+    console.log('[DynSim] Replacing step function for:', containerId);
+    registry.replaceStep(containerId, stepFunction);
+  };
+
   // JS-side registration — called by the Python bridge wrapper.
   window._dynsimJsRegister = function (containerId, stepFunction, config) {
     console.log('[DynSim] Registering Python system:', containerId);
