@@ -105,6 +105,28 @@ describe('Simulation', () => {
       sim2.step(5, {});
       expect(sim2.x).toBeCloseTo(10);
     });
+
+    it('recovers after a broken step function is replaced with a working one', () => {
+      const brokenStep = () => { throw new Error('syntax error in user code'); };
+      let currentStep = linearStep;
+      const sim2 = new Simulation(makeConfig(), () => currentStep);
+
+      // Normal step works
+      sim2.step(1, {});
+      expect(sim2.x).toBeCloseTo(1.1);
+
+      // Swap to broken — step throws
+      currentStep = brokenStep;
+      expect(() => sim2.step(1, {})).toThrow('syntax error in user code');
+
+      // State should be unchanged from before the error
+      expect(sim2.x).toBeCloseTo(1.1);
+
+      // Swap back to working — simulation recovers
+      currentStep = doublingStep;
+      sim2.step(3, {});
+      expect(sim2.x).toBeCloseTo(6);
+    });
   });
 
   describe('reset', () => {

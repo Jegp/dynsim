@@ -107,10 +107,13 @@ export class SimulationController {
 
       try {
         this.simulation.step(inputValue, paramValues);
+        this._lastStepError = null;
       } catch (e) {
-        console.error('[DynSim] Step error:', e);
-        this.stop();
-        return;
+        // Log but keep the loop alive — the user may fix the code in the editor
+        if (this._lastStepError !== e.message) {
+          console.error('[DynSim] Step error:', e);
+          this._lastStepError = e.message;
+        }
       }
 
       // Auto-pause when pause time is reached
