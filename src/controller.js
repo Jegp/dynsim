@@ -93,14 +93,17 @@ export class SimulationController {
   }
 
   animate() {
-    // Stop if the DOM element was detached (e.g. by React hydration).
+    // Stop if the plot element was detached (e.g. by React hydration).
     // The SPA polling will create a new controller on the replacement element.
-    if (!document.contains(this.view.plotDiv)) {
+    // Use isConnected rather than document.contains so this also works when the
+    // plot lives inside a shadow root (document.contains is false for those).
+    if (!this.view.plotDiv?.isConnected) {
       console.log('[DynSim] Plot element detached from DOM, stopping controller');
       this.stop();
       return;
     }
 
+    let stepped = false;
     if (this.isRunning && !this.simulation.paused) {
       const inputValue = this.view.getInput();
       const paramValues = this.view.getParameters();
@@ -108,6 +111,7 @@ export class SimulationController {
       try {
         this.simulation.step(inputValue, paramValues);
         this._lastStepError = null;
+        stepped = true;
       } catch (e) {
         // Log but keep the loop alive — the user may fix the code in the editor
         if (this._lastStepError !== e.message) {
@@ -123,12 +127,20 @@ export class SimulationController {
       }
     }
 
-    const plotArrays = this.simulation.getPlotArrays();
-    const xRange = this.simulation.plotType === 'timeseries'
-      ? this.simulation.getTimeseriesRange()
-      : undefined;
-    const spikeTimes = this.simulation.spikes ? this.simulation.spikeTimes : undefined;
-    this.view.updatePlot(plotArrays, xRange, spikeTimes);
+    // Only redraw on frames that advanced the simulation. While paused the plot
+    // holds its last frame, which hands the axes back to the user: they can
+    // zoom/pan/autoscale the frozen trace freely. (updatePlot re-asserts the
+    // simulation's ranges every frame, so redrawing while paused would fight
+    // the user's interaction.) Resuming steps again and takes the axes back.
+    // This also skips Plotly.react entirely while idle.
+    if (stepped) {
+      const plotArrays = this.simulation.getPlotArrays();
+      const xRange = this.simulation.plotType === 'timeseries'
+        ? this.simulation.getTimeseriesRange()
+        : undefined;
+      const spikeTimes = this.simulation.spikes ? this.simulation.spikeTimes : undefined;
+      this.view.updatePlot(plotArrays, xRange, spikeTimes);
+    }
 
     this.animationId = requestAnimationFrame(() => this.animate());
   }

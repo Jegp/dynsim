@@ -111,6 +111,24 @@ export class SimulationView {
       .addEventListener('click', () => this.callbacks.onPauseToggle?.());
   }
 
+  /**
+   * Shallow-clone a Plotly axis config, copying the `range` array too.
+   *
+   * Plotly.newPlot / Plotly.react write computed ranges back into the layout
+   * object they are given. If we passed this.plotConfig.xaxis/yaxis directly,
+   * that write-back would corrupt the shared config (which, in the registry
+   * setup, is the same object handed to every controller). Always give Plotly
+   * a throwaway copy instead.
+   * @param {object} [axis]
+   * @returns {object|undefined}
+   */
+  _cloneAxis(axis) {
+    if (!axis) return undefined;
+    const copy = { ...axis };
+    if (Array.isArray(axis.range)) copy.range = [...axis.range];
+    return copy;
+  }
+
   initPlot() {
     if (this.plotType === '3d') {
       Plotly.newPlot(this.plotDiv, [{
@@ -130,8 +148,8 @@ export class SimulationView {
     } else {
       const layout = { margin: { l: 50, r: 20, t: 40, b: 50 } };
       if (this.plotConfig.title) layout.title = this.plotConfig.title;
-      if (this.plotConfig.xaxis) layout.xaxis = this.plotConfig.xaxis;
-      if (this.plotConfig.yaxis) layout.yaxis = this.plotConfig.yaxis;
+      if (this.plotConfig.xaxis) layout.xaxis = this._cloneAxis(this.plotConfig.xaxis);
+      if (this.plotConfig.yaxis) layout.yaxis = this._cloneAxis(this.plotConfig.yaxis);
 
       const traces = [
         // Trace 0: main data line
@@ -178,10 +196,28 @@ export class SimulationView {
         data: [{ x: plotArrays.x, y: plotArrays.y, z: plotArrays.z }]
       }, { transition: { duration: 0 }, frame: { duration: 0 } });
     } else if (this.plotType === 'timeseries') {
+      // Rebuild the axes from scratch every frame with explicit ranges and
+      // autorange:false. This re-asserts the intended view on each Plotly.react,
+      // which overrides any Autoscale/zoom the user triggers from the modebar.
+      // Without it, one Autoscale click switches the axis to autorange and it
+      // then drifts with the live data — the "axes run off to infinity" bug.
+      // (Uses _cloneAxis so Plotly's range write-back never touches the config.)
+      const xaxis = this._cloneAxis(this.plotConfig.xaxis) || {};
+      xaxis.title = this.plotConfig.xaxis?.title || 'Time';
+      if (xRange) {
+        xaxis.range = [...xRange];
+        xaxis.autorange = false;
+      }
+
+      const yaxis = this._cloneAxis(this.plotConfig.yaxis) || {};
+      if (yaxis.range) {
+        yaxis.autorange = false;
+      }
+
       const layout = {
         title: this.plotConfig.title,
-        xaxis: { title: this.plotConfig.xaxis?.title || 'Time', range: xRange },
-        yaxis: this.plotConfig.yaxis,
+        xaxis,
+        yaxis,
         margin: { l: 50, r: 20, t: 40, b: 50 }
       };
 
